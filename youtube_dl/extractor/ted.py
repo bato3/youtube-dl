@@ -8,6 +8,7 @@ from .common import InfoExtractor
 from ..compat import compat_str
 from ..utils import (
     int_or_none,
+    strip_or_none,
     try_get,
 )
 
@@ -57,6 +58,7 @@ class TEDIE(InfoExtractor):
             'uploader': 'TED Institute',
         },
         'add_ie': ['Youtube'],
+        'skip': 'New url (and feth method): https://www.ted.com/talks/vishal_sikka_the_beauty_and_power_of_algorithms'
     }, {
         'url': 'http://www.ted.com/talks/gabby_giffords_and_mark_kelly_be_passionate_be_courageous_be_your_best',
         'md5': '71b3ab2f4233012dce09d515c9c39ce2',
@@ -162,14 +164,14 @@ class TEDIE(InfoExtractor):
         info = self._extract_info(webpage)
 
         talk_info = try_get(
-            info, lambda x: x['__INITIAL_DATA__']['talks'][0],
-            dict) or info['talks'][0]
+            info, lambda x: x.get('__INITIAL_DATA__',{}).get('talks',[None])[0],
+            dict) or info.get('talks',[None])[0]
 
-        title = talk_info['title'].strip()
+        title = strip_or_none(talk_info.get('title'))
 
-        external = talk_info.get('external')
+        external = talk_info.get('player_talks',[{}])[0].get('external') or talk_info.get('external')
         if external:
-            service = external['service']
+            service = external.get('service')
             self.to_screen('Found video from %s' % service)
             ext_url = None
             if service.lower() == 'youtube':
@@ -180,8 +182,8 @@ class TEDIE(InfoExtractor):
             }
 
         native_downloads = try_get(
-            talk_info, lambda x: x['downloads']['nativeDownloads'],
-            dict) or talk_info['nativeDownloads']
+            talk_info, lambda x: x.get('downloads', {}).get('nativeDownloads'),
+            dict) or talk_info.get('nativeDownloads')
 
         formats = [{
             'url': format_url,
@@ -190,13 +192,13 @@ class TEDIE(InfoExtractor):
         } for (format_id, format_url) in native_downloads.items() if format_url is not None]
         if formats:
             for f in formats:
-                finfo = self._NATIVE_FORMATS.get(f['format_id'])
+                finfo = self._NATIVE_FORMATS.get(f.get('format_id'))
                 if finfo:
                     f.update(finfo)
 
-        player_talk = talk_info['player_talks'][0]
+        player_talk = talk_info.get('player_talks',[None])[0]
 
-        resources_ = player_talk.get('resources') or talk_info.get('resources')
+        resources_ = player_talk.get('resources') or talk_info.get('resources', [])
 
         http_url = None
         for format_id, resources in resources_.items():
@@ -242,7 +244,7 @@ class TEDIE(InfoExtractor):
                 f = m3u8_format.copy()
                 f.update({
                     'url': re.sub(r'\d+k', bitrate, http_url),
-                    'format_id': m3u8_format['format_id'].replace('hls', 'http'),
+                    'format_id': m3u8_format.get('format_id','').replace('hls', 'http'),
                     'protocol': 'http',
                 })
                 formats.append(f)
@@ -257,7 +259,7 @@ class TEDIE(InfoExtractor):
 
         self._sort_formats(formats)
 
-        video_id = compat_str(talk_info['id'])
+        video_id = compat_str(talk_info.get('id'))
 
         return {
             'id': video_id,
@@ -274,8 +276,8 @@ class TEDIE(InfoExtractor):
         sub_lang_list = {}
         for language in try_get(
                 talk_info,
-                (lambda x: x['downloads']['languages'],
-                 lambda x: x['languages']), list):
+                (lambda x: x.get('downloads',{}).get('languages'),
+                 lambda x: x.get('languages')), list):
             lang_code = language.get('languageCode') or language.get('ianaCode')
             if not lang_code:
                 continue
@@ -298,8 +300,8 @@ class TEDIE(InfoExtractor):
             embed_url = self._search_regex(
                 r"<iframe[^>]+class='pages-video-embed__video__object'[^>]+src='([^']+)'", webpage, 'embed url')
             return self.url_result(self._proto_relative_url(embed_url))
-        config = json.loads(config_json)['config']
-        video_url = config['video']['url']
+        config = json.loads(config_json).get('config')
+        video_url = config.get('video',{}).get('url')
         thumbnail = config.get('image', {}).get('url')
 
         title = self._html_search_regex(
