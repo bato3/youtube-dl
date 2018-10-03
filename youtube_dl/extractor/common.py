@@ -621,8 +621,8 @@ class InfoExtractor(object):
                     self._sleep(5, None, 'Solving Cloudflare challenge (5s)')
 
                     url_or_request = update_url_query(submit_url, form_data)
-                    if headers:
-                        url_or_request = sanitized_Request(url_or_request, None, headers)
+                    headers['Referer'] = url
+                    url_or_request = sanitized_Request(url_or_request, None, headers)
 
                     try:
                         return self._downloader.urlopen(url_or_request)
