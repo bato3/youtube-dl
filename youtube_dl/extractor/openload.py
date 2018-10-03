@@ -241,6 +241,55 @@ class PhantomJSwrapper(object):
 
         return (html, encodeArgument(out))
 
+    def extract_and_solve_cf(self, body, url):
+        '''
+        Extract and solve CloudFlrae Callenge (Anorov cloudflare-scrape).
+        '''
+        if u'/cdn-cgi/l/chk_jschl' not in body:
+            raise ExtractorError('This challenge can\'t be solved automaticly. Use `--cookie` parametr. See: https://tinyurl.com/ytDLcookie', expected=True)
+
+        try:
+            js = re.search(r"setTimeout\(function\(\){\s+var s,t,o,p,b,r,e,a,k,i,n,g,f,(.+?\r?\n[\s\S]+?a\.value =.+?)\r?\n", body).group(1)
+        except Exception:
+            raise ExtractorError("Unable to identify Cloudflare IUAM Javascript on website.")
+
+        tpl = r'''
+            var fs = require('fs');
+            var write = {{ mode: 'w', charset: 'utf-8' }};
+            {jscode};
+            phantom.exit();
+        '''
+        js = re.sub(r"a\.value = (.+ \+ t\.length).+", r"fs.write(\"tmp-html-filename\",\1, write)", js)
+        js = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", js).replace("t.length", str(len(compat_urlparse.urlparse(url).netloc)))
+        js = re.sub(r"[\n\\']", "", js)
+
+        if "toFixed" not in js:
+            raise ExtractorError("Error parsing Cloudflare IUAM Javascript challenge.")
+
+        replaces = self.options
+        for x in self._TMP_FILE_NAMES:
+            replaces[x] = self._TMP_FILES[x].name.replace('\\', '\\\\').replace('"', '\\"')
+        replaces['jscode'] = js.replace('tmp-html-filename', re.escape(self._TMP_FILES['html'].name))
+        with open(self._TMP_FILES['script'].name, 'wb') as f:
+            f.write(tpl.format(**replaces).encode('utf-8'))
+
+        p = subprocess.Popen([
+            self.exe, '--ssl-protocol=any',
+            self._TMP_FILES['script'].name
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        _, err = p.communicate()
+        if p.returncode != 0:
+            raise ExtractorError(
+                'Executing JS failed\n:' + encodeArgument(err))
+
+        with open(self._TMP_FILES['html'].name, 'rb') as f:
+            result = f.read().decode('utf-8')
+        try:
+            float(result)
+        except Exception:
+            raise ExtractorError("Cloudflare IUAM challenge returned unexpected answer.")
+        return result
+
 
 class OpenloadIE(InfoExtractor):
     _VALID_URL = r'https?://(?:www\.)?(?:openload\.(?:co|io|link)|oload\.(?:tv|stream|site|xyz|win|download|cloud))/(?:f|embed)/(?P<id>[a-zA-Z0-9-_]+)'

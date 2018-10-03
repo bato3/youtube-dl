@@ -50,6 +50,7 @@ from ..utils import (
     float_or_none,
     GeoRestrictedError,
     GeoUtils,
+    HEADRequest,
     int_or_none,
     js_to_json,
     JSON_LD_RE,
@@ -603,6 +604,31 @@ class InfoExtractor(object):
         try:
             return self._downloader.urlopen(url_or_request)
         except (compat_urllib_error.URLError, compat_http_client.HTTPException, socket.error) as err:
+            if isinstance(err, compat_urllib_error.HTTPError) and not isinstance(url_or_request, HEADRequest):
+                if err.code == 503 and err.headers.get('Server').startswith('cloudflare'):
+                    from .openload import PhantomJSwrapper
+                    try:
+                        phantom = PhantomJSwrapper(self, required_version='2.0')
+                    except ExtractorError as err:
+                        raise ExtractorError('Site is protected by Cloudflare challenge. Use `--cookie` or instal `PhantomJS`', expected=True)
+
+                    content = self._webpage_read_content(err.fp, url_or_request, video_id, note='Read Cloudflare challenge page')
+                    url = err.geturl()
+                    parsed_url = compat_urlparse.urlparse(url)
+                    submit_url = "%s://%s/cdn-cgi/l/chk_jschl" % (parsed_url.scheme, parsed_url.netloc)
+                    form_data = self._form_hidden_inputs('challenge-form', content)
+                    form_data['jschl_answer'] = phantom.extract_and_solve_cf(content, url)
+                    self._sleep(5, None, 'Solving Cloudflare challenge (5s)')
+
+                    url_or_request = update_url_query(submit_url, form_data)
+                    if headers:
+                        url_or_request = sanitized_Request(url_or_request, None, headers)
+
+                    try:
+                        return self._downloader.urlopen(url_or_request)
+                    except (compat_urllib_error.URLError, compat_http_client.HTTPException, socket.error) as new_err:
+                        err = new_err
+
             if isinstance(err, compat_urllib_error.HTTPError):
                 if self.__can_accept_status_code(err, expected_status):
                     return err.fp
