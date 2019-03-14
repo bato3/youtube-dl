@@ -259,7 +259,7 @@ class PhantomJSwrapper(object):
             {jscode};
             phantom.exit();
         '''
-        js = re.sub(r"a\.value = (.+ \+ t\.length).+", r"fs.write(\"tmp-html-filename\",\1, write)", js)
+        js = re.sub(r"a\.value = (.+ \+ t\.length(\).toFixed\(10\))?).+", r"fs.write(\"tmp-html-filename\",\1, write)", js)
         js = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", js).replace("t.length", str(len(compat_urlparse.urlparse(url).netloc)))
         js = re.sub(r"[\n\\']", "", js)
 
