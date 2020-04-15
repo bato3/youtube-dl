@@ -103,7 +103,7 @@ class InfoExtractor(object):
     id:             Video identifier.
     title:          Video title, unescaped.
 
-    Additionally, it must contain either a formats entry or a url one:
+     Additionally, it must contain either a formats entry or a url one:
 
     formats:        A list of dictionaries for each format available, ordered
                     from worst to best quality.

@@ -1294,6 +1294,7 @@ from .videomore import (
     VideomoreVideoIE,
     VideomoreSeasonIE,
 )
+
 from .videopress import VideoPressIE
 from .vidio import VidioIE
 from .vidlii import VidLiiIE
