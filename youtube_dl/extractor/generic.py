@@ -2140,6 +2140,16 @@ class GenericIE(InfoExtractor):
             },
         },
         # {
+        #    # Clappr.Player({})
+        #    'url': 'http://demo.teleosmedia.com/mosaic/',
+        #    'md5': "TODO",
+        #    'info_dict': {
+        #        'id': 'mosaic',
+        #        'title': 'video',
+        #        'ext': 'mp4'
+        #    },
+        # },
+        # {
         #     # TODO: find another test
         #     # http://schema.org/VideoObject
         #     'url': 'https://flipagram.com/f/nyvTSJMKId',
@@ -3209,6 +3219,12 @@ class GenericIE(InfoExtractor):
             except ExtractorError:
                 # See https://github.com/ytdl-org/youtube-dl/pull/16735
                 pass
+
+        # Clappr.player()
+        clappr_dict = self._find_clappr_data(webpage, video_id)
+        if clappr_dict:
+            info = self._parse_clappr_data(clappr_dict, video_id=video_id, base_url=url)
+            return merge_dicts(info, info_dict)
 
         # Video.js embed
         mobj = re.search(
