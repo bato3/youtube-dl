@@ -58,6 +58,7 @@ class XFileShareIE(InfoExtractor):
         (r'vidshare\.tv', 'VidShare'),
         (r'vup\.to', 'VUp'),
         (r'xvideosharing\.com', 'XVideoSharing'),
+        (r'vidlox\.me', 'Vidlox')
     )
 
     IE_DESC = 'XFileShare based sites: %s' % ', '.join(list(zip(*_SITES))[1])
@@ -157,7 +158,7 @@ class XFileShareIE(InfoExtractor):
                     r'<embed[^>]+src=(["\'])(?P<url>http(?:(?!\1).)+\.(?:m3u8|mp4|flv)(?:(?!\1).)*)\1'):
                 for mobj in re.finditer(regex, webpage):
                     video_url = mobj.group('url')
-                    if video_url not in urls:
+                    if video_url not in urls and video_url != url:
                         urls.append(video_url)
 
             sources = self._search_regex(
